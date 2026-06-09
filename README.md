@@ -149,3 +149,6 @@ app.run(debug=True, port=5001)  # Use different port
 ## License
 
 MIT
+  docker build -t ai-advisor:latest .
+  docker save ai-advisor:latest> ai-advisor.tar
+  sudo microk8s ctr image import ai-advisor.tar
