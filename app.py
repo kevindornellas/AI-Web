@@ -8,7 +8,7 @@ app = Flask(__name__)
 # Configuration
 OLLAMA_ENDPOINT = "http://192.168.86.141:11434/v1/chat/completions"
 MODEL = "gemma4:12b-128k"
-MAX_CONTEXT = 65565
+MAX_CONTEXT = 131130
 SYSTEM_PROMPT = """I am the director of Application Development for a small B2B application called Elastic Suite.
 You are not my assistant. You are my advisor. Follow these rules with every reply:
 
