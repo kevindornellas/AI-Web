@@ -184,6 +184,42 @@
             font-weight: 500;
         }
 
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .model-selector label {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        select#modelSelect {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.97em;
+            background: #fff;
+            color: #333;
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+
+        select#modelSelect:focus {
+            outline: none;
+            border-color: #0f3460;
+        }
+
+        select#modelSelect:disabled {
+            background: #f4f4f4;
+            color: #999;
+            cursor: not-allowed;
+        }
+
         button {
             background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
             color: white;
@@ -439,6 +475,18 @@
 
         <!-- Start panel (shown before first message) -->
         <div class="start-panel" id="startPanel">
+            <div class="model-selector">
+                <label for="roleSelect">Role</label>
+                <select id="roleSelect">
+                    <option value="Director">Director</option>
+                </select>
+            </div>
+            <div class="model-selector">
+                <label for="modelSelect">Model</label>
+                <select id="modelSelect" disabled>
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
             <label for="initialPrompt">What do you want advice on?</label>
             <textarea id="initialPrompt" placeholder="e.g., We're thinking about rewriting our frontend in React..."></textarea>
             <div style="margin-top:12px;">
@@ -458,6 +506,7 @@
         <!-- Stats bar -->
         <div class="stats-bar hidden" id="statsBar">
             <div class="stats-bar-inner">
+                <span class="stat-inline"><strong id="activeModel"></strong></span>
                 <span class="stat-inline"><strong id="tokensUsed">0</strong> tokens used</span>
                 <span class="stat-inline"><strong id="tokensRemaining">128K</strong> remaining</span>
                 <span class="stat-inline"><strong id="exchanges">0</strong> exchanges</span>
@@ -486,6 +535,52 @@
             messageEl.className = `message show ${type}`;
             setTimeout(() => messageEl.classList.remove('show'), 5000);
         }
+
+        async function loadRoles() {
+            const sel = document.getElementById('roleSelect');
+            try {
+                const res = await fetch('/api/roles');
+                const data = await res.json();
+                if (data.success && data.roles.length > 0) {
+                    sel.innerHTML = '';
+                    for (const r of data.roles) {
+                        const opt = document.createElement('option');
+                        opt.value = r;
+                        opt.textContent = r;
+                        if (r === data.current) opt.selected = true;
+                        sel.appendChild(opt);
+                    }
+                }
+            } catch (e) {
+                // leave the default option in place
+            }
+        }
+
+        async function loadModels() {
+            const sel = document.getElementById('modelSelect');
+            try {
+                const res = await fetch('/api/models');
+                const data = await res.json();
+                if (data.success && data.models.length > 0) {
+                    sel.innerHTML = '';
+                    for (const m of data.models) {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m;
+                        if (m === data.current) opt.selected = true;
+                        sel.appendChild(opt);
+                    }
+                    sel.disabled = false;
+                } else {
+                    sel.innerHTML = `<option value="">${data.error || 'No models found'}</option>`;
+                }
+            } catch (e) {
+                sel.innerHTML = '<option value="">Failed to load models</option>';
+            }
+        }
+
+        loadRoles();
+        loadModels();
 
         function showLoading(show) {
             document.getElementById('loading').classList.toggle('show', show);
@@ -558,12 +653,16 @@
             const prompt = document.getElementById('initialPrompt').value.trim();
             if (!prompt) { showMessage('Please enter a question or topic.', 'error'); return; }
 
+            const model = document.getElementById('modelSelect').value;
+            if (!model) { showMessage('Please select a model.', 'error'); return; }
+            const role = document.getElementById('roleSelect').value;
+
             showLoading(true);
             try {
                 const res = await fetch('/api/start-conversation', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
+                    body: JSON.stringify({ prompt, model, role })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -573,6 +672,7 @@
                     document.getElementById('inputArea').classList.remove('hidden');
                     renderConversation(data.conversation);
                     updateStats(data);
+                    document.getElementById('activeModel').textContent = `${role} · ${model}`;
                 } else {
                     showMessage(`Error: ${data.error}`, 'error');
                 }
@@ -624,6 +724,7 @@
             document.getElementById('inputArea').classList.add('hidden');
             document.getElementById('startPanel').classList.remove('hidden');
             document.getElementById('initialPrompt').value = '';
+            document.getElementById('activeModel').textContent = '';
         }
     </script>
 </body>
