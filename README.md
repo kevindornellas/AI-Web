@@ -5,16 +5,18 @@ A Python Flask web application that provides an opinionated, challenge-first AI 
 ## Features
 
 - **Chat-style UI** - Full conversation history displayed on screen, messages persist across turns
+- **Role-based advisor personas** - Select from multiple expert roles (Director, Developer, Architect, Cyber Security Engineer) via dropdown to get tailored advice perspectives
+- **Model selection dropdown** - Choose from available Ollama models dynamically loaded at runtime
 - **Advisor persona** - Never agrees first; challenges assumptions and rates confidence on every claim
 - **Full context history** - All prior turns are sent to the model on each request for coherent multi-turn reasoning
 - **Token tracking** - Live token usage bar and per-exchange stats
-- **128K context window** - Uses `gemma4:12b-128k` via Ollama
+- **128K+ context window** - Uses `gemma4:12b-128k` via Ollama
 
 ## Requirements
 
 - Python 3.8+
 - Ollama accessible at `http://192.168.86.141:11434`
-- `gemma4:64k` model pulled in Ollama
+- At least one model pulled in Ollama (default is `gemma4:12b-128k`)
 
 ## Local Development
 
@@ -44,25 +46,67 @@ The LoadBalancer service exposes port 80 → container port 5000.
 
 ## Configuration
 
-All config is at the top of `app.py`:
+### Runtime Settings (via dropdowns)
+
+All runtime configuration is controlled through the UI:
+
+**Role Selection**: Choose from available advisor personas via the Role dropdown in the start panel. Available roles include:
+- **Director** - Strategic oversight and business alignment perspective
+- **Developer** - Technical implementation, code quality, and best practices focus  
+- **Architect** - System design, scalability, and maintainability considerations
+- **Cyber Security Engineer** - Security vulnerabilities and attack surface analysis
+
+**Model Selection**: Select from models available in your Ollama instance via the Model dropdown. The default model is configured at startup but can be changed dynamically.
+
+### Environment Variables (optional)
+
+All config defaults are set programmatically:
 
 | Variable | Default | Description |
 |---|---|---|
-| `OLLAMA_ENDPOINT` | `http://192.168.86.141:11434/v1/chat/completions` | Ollama API endpoint |
-| `MODEL` | `gemma4:12b-128k` | Model name |
+| `OLLAMA_ENDPOINT` | `http://192.168.86.141:11434/v1/chat/completions` | Ollama API endpoint (can be overridden) |
+| `MODEL` | `gemma4:12b-128k` | Default model name for the Model dropdown |
 | `MAX_CONTEXT` | `65565` | Token context window cap |
 
 ## API Endpoints
 
+### GET `/api/roles`
+Get available advisor roles for the Role dropdown selector.
+
+**Response:**
+```json
+{
+  "success": true,
+  "roles": ["Director", "Developer", "Architect", "Cyber Security Engineer"],
+  "current": "Director"
+}
+```
+
+### GET `/api/models`
+Get available models from Ollama for the Model dropdown selector.
+
+**Response:**
+```json
+{
+  "success": true,
+  "models": ["gemma4:12b-128k", "other-models..."],
+  "current": "gemma4:12b-128k"
+}
+```
+
 ### POST `/api/start-conversation`
-Start a new conversation. Clears prior history.
+Start a new conversation with the selected role and model. Clears prior history.
 
 **Request:**
 ```json
-{ "prompt": "We're thinking about rewriting the frontend in React..." }
+{ 
+  "prompt": "We're thinking about rewriting the frontend in React...",
+  "role": "Director",  // Optional: overrides dropdown selection
+  "model": "gemma4:12b-128k"  // Optional: overrides dropdown selection
+}
 ```
 
-**Response:**
+**Response:****
 ```json
 {
   "success": true,
@@ -99,36 +143,21 @@ Reset the conversation and start fresh.
 
 ## Example Interaction
 
-1. Start with: "Tell me a story about Rachel at a concert"
-   - Uses ~1750 tokens
+**Step 1: Select Role and Model (via dropdowns)**  
+- Choose your advisor persona from the **Role** dropdown (e.g., "Architect")  
+- Select a model from the **Model** dropdown  
+
+**Step 2: Start Conversation**  
+Enter an initial prompt like: *"We're thinking about rewriting our frontend in React..."*
+
+1. Uses ~1750 tokens
    - 6250 tokens remaining
 
-2. Continue with: "She bumps into an old friend"
-   - Previous response compressed from 526 tokens → ~150 tokens
-   - New request uses ~800 tokens
-   - 5450 tokens remaining
-
-3. Continue with: "They decide to grab coffee after the show"
-   - Previous response compressed again
-   - ~850 tokens used
-   - 4600 tokens remaining
-
-4. Keep going until context window fills up!
-
-## How Compression Works
-
-The compression algorithm:
-1. Keeps the first 60% of the response (to maintain opening context)
-2. Keeps the last 40% of the response (to maintain ending/cliffhanger)
-3. Inserts "[...]" to show omission
-4. Finds sentence boundaries to avoid cutting mid-sentence
-5. Typically reduces ~500+ token responses to ~150-200 tokens
-
-Example:
-```
-Original: "Rachel had been dancing for hours... [continues for 500 tokens]"
-Compressed: "Rachel had been dancing for hours at the edge of the packed crowd. [...] The mosh pit surged to the beat."
-```
+**Role Impact Example:**
+- **Director**: Focuses on business alignment, strategic decisions, and organizational impact
+- **Developer**: Highlights technical risks, code smells, edge cases, and implementation details  
+- **Architect**: Identifies architectural assumptions, scalability boundaries, and long-term maintainability concerns
+- **Cyber Security Engineer**: Points out attack surfaces, vulnerabilities, and security gaps
 
 ## Troubleshooting
 
